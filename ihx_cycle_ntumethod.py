@@ -2,11 +2,12 @@
 Single Stage Heat Pump Cycle with Inner Heat Exchanger
 
 """
-from CoolProp.CoolProp import PropsSI
+import os
 import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from CoolProp.CoolProp import PropsSI
 
 # -------------------- Input Variables --------------------
 ref = "R1233zdE"             # Refrigerant
@@ -190,7 +191,7 @@ else:
 
 
 # -------------------- Results --------------------
-def plot_thermodynamic_diagrams(df_results, ref_name):
+def plot_thermodynamic_diagrams(df_results, ref_name, save_path=None):
     print("\n--- Creating Plots... ---")
     P_crit = PropsSI('Pcrit', ref_name)
     T_start = PropsSI('Ttriple', ref_name) + 2.0
@@ -237,6 +238,12 @@ def plot_thermodynamic_diagrams(df_results, ref_name):
     for i, txt in enumerate(df_results.index):
         ax2.annotate(txt.split('.')[0], (df_results['s [kJ/kgK]'][i]+0.01, df_results['T [°C]'][i]+3))
     plt.tight_layout()
+
+    # Save the figure BEFORE showing it
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+        print(f"Plot saved to {save_path}")
+        
     plt.show()
 
 if converged:
@@ -276,6 +283,34 @@ if converged:
     print("\n--- Physical Properties of State Points ---")
     print(df.round(3))
 
-    plot_thermodynamic_diagrams(df, ref)
+    # -------------------- Save Results --------------------
+    print("\n--- Saving Results ---")
+    output_dir = "results"  # Save results in a subfolder named 'results'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir) # Create the folder if it doesn't exist
+
+    # Define file paths using os.path.join for compatibility
+    summary_path = os.path.join(output_dir, "ihx_summary.txt")
+    csv_path = os.path.join(output_dir, "ihx_cycle_result.csv")
+    plot_path = os.path.join(output_dir, "ihx_performance_plot.png")
+
+    # (1) Save text summary
+    with open(summary_path, "w") as f:
+        f.write(f"Targeted Condensation Saturation Temperature: {T_cond_K - 273.15:.2f} °C\n")
+        f.write(f"Required Evaporation Saturation Temperature: {T_evap_K - 273.15:.2f} °C\n")
+        f.write(f"Mass Flow Rate of Refrigerant: {m_dot_ref:.3f} kg/s\n")
+        f.write(f"Heating COP: {COP_H:.3f}\n\n")
+        f.write("--- Physical Properties ---\n")
+        f.write(df.round(3).to_string())
+    print(f"Summary saved to {summary_path}")
+
+    # (2) Save CSV results
+    df.round(3).to_csv(csv_path)
+    print(f"CSV data saved to {csv_path}")
+
+    # (3) Call the plotting function to generate and save the diagrams
+    plot_thermodynamic_diagrams(df, ref, save_path=plot_path)
+
 else:
     print("\n--- Failed to Converge the Simulation ---")
+    print("--- No results were saved. ---")
