@@ -2,33 +2,34 @@
 Single Stage Heat Pump Cycle without Heat Exchanger
 
 """
-from CoolProp.CoolProp import PropsSI
+import os
 import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from CoolProp.CoolProp import PropsSI
 
 # -------------------- Input Variables --------------------
-ref = "R1233zdE"             # Refrigerant
-T_source_in_C = 85.0         # Heat Source T-temperature (°C)
-m_dot_source = 1.2           # Heat Source mass flow rate (kg/s)
-T_sink_in_C = 100.0          # Heat Sink temperature (°C)
-m_dot_sink = 1.0             # Heat Sink mass flow rate (kg/s)
+ref = "R1233zdE"              # Refrigerant
+T_source_in_C = 85.0          # Heat Source T-temperature (°C)
+m_dot_source = 1.2            # Heat Source mass flow rate (kg/s)
+T_sink_in_C = 100.0           # Heat Sink temperature (°C)
+m_dot_sink = 1.0              # Heat Sink mass flow rate (kg/s)
 
 # --- Target Values / Parameters ---
-T_cond_target_C = 120.0      # ⭐ Condensor target temperature (°C)
-T_evap_guess_C = 75.0        # Evaporator initial guess temperature (°C)
-superheat_K = 5.0            # Superheat (K)
-subcool_K = 2.0              # Subcool (K)
-eta_comp = 0.75              # Compressor efficiency
+T_cond_target_C = 120.0       # ⭐ Condensor target temperature (°C)
+T_evap_guess_C = 75.0         # Evaporator initial guess temperature (°C)
+superheat_K = 5.0             # Superheat (K)
+subcool_K = 2.0               # Subcool (K)
+eta_comp = 0.75               # Compressor efficiency
 
 # --- Pressure Losses ---
-dp_ratio_gas = 0.05     # ⭐ Vapor pressure drop 5%
-dp_ratio_liquid = 0.02  # ⭐ Liquid pressure drop 2%
+dp_ratio_gas = 0.05           # ⭐ Vapor pressure drop 5%
+dp_ratio_liquid = 0.02        # ⭐ Liquid pressure drop 2%
 
 # --- Heat Exchanger Specification ---
-UA_evap = 3500.0             # Evaporator overall heat transfer coefficient * Area (W/K)
-UA_cond = 4000.0             # Condensor overall heat transfer coefficient * Area (W/K)
+UA_evap = 3500.0              # Evaporator overall heat transfer coefficient * Area (W/K)
+UA_cond = 4000.0              # Condensor overall heat transfer coefficient * Area (W/K)
 
 # --- Convergence Set Up ---
 max_iter = 200
@@ -80,7 +81,7 @@ for i in range(1, max_iter + 1):
     h3 = PropsSI('H', 'T', T3_K, 'P', p_cond, ref)
     h4 = h3
 
-    # 3. Evaporator 
+    # 3. Evaporator
     Cp_source = m_dot_source * get_cp('Water', T_source_in_K)
     C_min_evap = Cp_source
     NTU_evap = UA_evap / C_min_evap
@@ -98,13 +99,13 @@ for i in range(1, max_iter + 1):
     h1_calc, h2, T2_K = get_compressor_outlet(ref, p_evap, T1_K, p_cond, eta_comp)
     W_compressor = m_dot_ref * (h2 - h1)
 
-    # 6. Condesor
-    Q_cond_required = Q_evap + W_compressor                                # Required
+    # 6. Condensor
+    Q_cond_required = Q_evap + W_compressor
     Cp_sink = m_dot_sink * get_cp('Water', T_sink_in_K)
     C_min_cond = Cp_sink
     NTU_cond = UA_cond / C_min_cond
     epsilon_cond = effectiveness_Cr_zero(NTU_cond)
-    Q_cond_model = epsilon_cond * C_min_cond * (T_cond_K - T_sink_in_K)    # Actual
+    Q_cond_model = epsilon_cond * C_min_cond * (T_cond_K - T_sink_in_K)
 
     # 7. Residual Calculation & Update T_evap
     residual = Q_cond_model - Q_cond_required
@@ -120,7 +121,7 @@ else:
     print(f"\n>> Reached the maximum number of iterations of ({max_iter}). Failed convergence.")
 
 # -------------------- Results --------------------
-def plot_thermodynamic_diagrams(df_results, ref_name):
+def plot_thermodynamic_diagrams(df_results, ref_name, save_path=None):
     print("\n--- Creating Plots... ---")
     P_crit = PropsSI('Pcrit', ref_name)
     T_start = PropsSI('Ttriple', ref_name) + 2.0
@@ -166,38 +167,38 @@ def plot_thermodynamic_diagrams(df_results, ref_name):
     ax2.set_ylabel('Temperature [°C]'); ax2.grid(True, ls="--"); ax2.legend()
     for i, txt in enumerate(df_results.index):
         ax2.annotate(txt.split('.')[0], (df_results['s [kJ/kgK]'][i]+0.01, df_results['T [°C]'][i]+3))
+    
     plt.tight_layout()
+    
+    # Save the figure BEFORE showing it
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+        print(f"Plot saved to {save_path}")
+        
     plt.show()
 
 if converged:
     print("\n--- Summary ---")
-    print(f"Targted Condensation Saturation Temperature: {T_cond_K - 273.15:.2f} °C")
+    print(f"Targeted Condensation Saturation Temperature: {T_cond_K - 273.15:.2f} °C")
     print(f"Required Evaporation Saturation Temperature: {T_evap_K - 273.15:.2f} °C")
-    print(f"Mass Flow Rate of Refrigerant: {m_dot_ref:.2f} kg/s")
+    print(f"Mass Flow Rate of Refrigerant: {m_dot_ref:.3f} kg/s")
     
-    # Heating COP  
     if W_compressor > 0:
         COP_H = Q_cond_required / W_compressor
         print(f"Heating COP: {COP_H:.3f}")
     else:
+        COP_H = 0 # Define COP_H as 0 or another indicator for the text file
         print("Heating COP: N/A")
 
     # --- Properties of Each Points ---
-    # Point 1: Compressor Inlet
     s1 = PropsSI('S', 'P', p_evap, 'H', h1, ref)
-    
-    # Point 2: Compressor Outlet
     s2 = PropsSI('S', 'P', p_cond, 'H', h2, ref)
-
-    # Point 3: Expansion Valve Inlet
     s3 = PropsSI('S', 'P', p_cond, 'H', h3, ref)
-
-    # Point 4: Expansion Valve Outlet
     p4 = p_evap 
     T4_K = PropsSI('T', 'P', p4, 'H', h4, ref)
     s4 = PropsSI('S', 'P', p4, 'H', h4, ref)
 
-    # --- Create pandas DataFrame  ---
+    # --- Create pandas DataFrame ---
     state_points_data = {
         'T [°C]': [T1_K - 273.15, T2_K - 273.15, T3_K - 273.15, T4_K - 273.15],
         'P [bar]': [p_evap / 1e5, p_cond / 1e5, p_cond / 1e5, p4 / 1e5],
@@ -208,8 +209,35 @@ if converged:
 
     print("\n--- Physical Properties of State Points ---")
     print(df.round(3))
-    plot_thermodynamic_diagrams(df, ref)
+    
+    # -------------------- Save Results --------------------
+    print("\n--- Saving Results ---")
+    output_dir = "results"  # Save results in a subfolder named 'results'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir) # Create the folder if it doesn't exist
+
+    # Define file paths using os.path.join for compatibility
+    summary_path = os.path.join(output_dir, "nhx_summary.txt")
+    csv_path = os.path.join(output_dir, "nhx_cycle_result.csv")
+    plot_path = os.path.join(output_dir, "nhx_performance_plot.png")
+
+    # (1) Save text summary
+    with open(summary_path, "w") as f:
+        f.write(f"Targeted Condensation Saturation Temperature: {T_cond_K - 273.15:.2f} °C\n")
+        f.write(f"Required Evaporation Saturation Temperature: {T_evap_K - 273.15:.2f} °C\n")
+        f.write(f"Mass Flow Rate of Refrigerant: {m_dot_ref:.3f} kg/s\n")
+        f.write(f"Heating COP: {COP_H:.3f}\n\n")
+        f.write("--- Physical Properties ---\n")
+        f.write(df.round(3).to_string())
+    print(f"Summary saved to {summary_path}")
+
+    # (2) Save CSV results
+    df.round(3).to_csv(csv_path)
+    print(f"CSV data saved to {csv_path}")
+
+    # (3) Call the plotting function to generate and save the diagrams
+    plot_thermodynamic_diagrams(df, ref, save_path=plot_path)
 
 else:
     print("\n--- Failed to Converge the Simulation ---")
-
+    print("--- No results were saved. ---")
