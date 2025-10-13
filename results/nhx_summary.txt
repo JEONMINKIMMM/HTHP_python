@@ -1,0 +1,11 @@
+Targeted Condensation Saturation Temperature: 120.00 ¡ÆC
+Required Evaporation Saturation Temperature: 73.68 ¡ÆC
+Mass Flow Rate of Refrigerant: 0.271 kg/s
+Heating COP: 5.106
+
+--- Physical Properties ---
+                 T [¡ÆC]  P [bar]  h [kJ/kg]  s [kJ/kgK]
+1. Comp Inlet    78.681    5.619    490.223       1.902
+2. Comp Outlet  123.880   15.750    515.897       1.918
+3. EXV Inlet    118.000   15.750    384.801       1.585
+4. EXV Outlet    73.681    5.619    384.801       1.598
