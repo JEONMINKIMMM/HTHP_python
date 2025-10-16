@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from CoolProp.CoolProp import PropsSI
 
 # -------------------- Input Variables --------------------
-ref = "R1233zdE"             # Refrigerant
+ref = "R1233zd(E)"             # Refrigerant
 T_source_in_C = 85.0         # Heat Source T-temperature (°C)
 m_dot_source = 1.2           # Heat Source mass flow rate (kg/s)
 T_sink_in_C = 100.0          # Heat Sink temperature (°C)
@@ -34,14 +34,10 @@ UA_IHX = 250.0               # IHX overall heat transfer coefficient * Area (W/K
 
 # --- Convergence Set Up ---
 max_iter = 200
-tolerance = 1e-5
+tolerance = 10
 relaxation = 0.2
 
 # -------------------- Helper Functions --------------------
-def get_sat_properties(ref, T_K):
-    p = PropsSI('P', 'T', T_K, 'Q', 0, ref)
-    return p
-
 def get_compressor_outlet(ref, p_in, T_in, p_out, eta_s):
     h_in = PropsSI('H', 'P', p_in, 'T', T_in, ref)
     s_in = PropsSI('S', 'P', p_in, 'T', T_in, ref)
@@ -84,9 +80,9 @@ for i in range(1, max_iter + 1):
     p1 = p_sat_evap                        # Evaporator outlet / IHX cold inlet
     p2 = p1 * (1 - dp_ratio_gas)           # IHX cold outlet / Compressor inlet
     p3 = p_sat_cond                        # Compressor outlet / Condenser inlet
-    p4 = p3                                # Condenser outlet / IHX hot inlet
+    p4 = p3 * (1 - dp_ratio_liquid)        # Condenser outlet / IHX hot inlet
     p5 = p4 * (1 - dp_ratio_liquid)        # IHX hot outlet / EXV inlet
-    p6 = p_sat_evap                        # EXV outlet / evaporator 
+    p6 = p1/(1 - dp_ratio_gas)             # EXV outlet / Evaporator inlet
 
     # 3. IHX Inlet Enthalpy ( calculated by temperature )
     T1_K = T_evap_K + superheat_K
