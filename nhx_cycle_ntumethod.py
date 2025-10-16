@@ -37,11 +37,6 @@ tolerance = 1e-5
 relaxation = 0.2
 
 # -------------------- Helper Functions --------------------
-def get_sat_properties(ref, T_K):
-    p = PropsSI('P', 'T', T_K, 'Q', 0, ref)
-    h_liq = PropsSI('H', 'T', T_K, 'Q', 0, ref)
-    h_vap = PropsSI('H', 'T', T_K, 'Q', 1, ref)
-    return p, h_liq, h_vap
 
 def get_compressor_outlet(ref, p_in, T_in, p_out, eta_s):
     h_in = PropsSI('H', 'P', p_in, 'T', T_in, ref)
@@ -71,14 +66,20 @@ converged = False
 for i in range(1, max_iter + 1):
     
     # 1. Saturation Pressure
-    p_evap, _, _ = get_sat_properties(ref, T_evap_K)
-    p_cond, _, _ = get_sat_properties(ref, T_cond_K)
+    p_sat_evap = PropsSI('P', 'T', T_evap_K, 'Q', 1, ref)  # 증발기 포화압
+    p_sat_cond = PropsSI('P', 'T', T_cond_K, 'Q', 1, ref)  # 응축기 포화압
+
+    # 2. Pressure of State Points
+    p1 = p_sat_evap                        # Evaporator outlet / Compressor inlet
+    p2 = p_sat_cond                        # Compressor outlet / Condenser inlet
+    p3 = p2 * (1 - dp_ratio_liquid)        # Condenser outlet / EXV inlet
+    p4 = p1 / (1 - dp_ratio_gas)    # EXV outlet / Evaporator inlet
 
     # 2. Define State Points
     T1_K = T_evap_K + superheat_K
-    h1 = PropsSI('H', 'T', T1_K, 'P', p_evap, ref)
+    h1 = PropsSI('H', 'T', T1_K, 'P', p1, ref)
     T3_K = T_cond_K - subcool_K
-    h3 = PropsSI('H', 'T', T3_K, 'P', p_cond, ref)
+    h3 = PropsSI('H', 'T', T3_K, 'P', p3, ref)
     h4 = h3
 
     # 3. Evaporator
@@ -96,7 +97,7 @@ for i in range(1, max_iter + 1):
     m_dot_ref = Q_evap / (h1 - h4)
 
     # 5. Compressor Performance
-    h1_calc, h2, T2_K = get_compressor_outlet(ref, p_evap, T1_K, p_cond, eta_comp)
+    h1_calc, h2, T2_K = get_compressor_outlet(ref, p1, T1_K, p2, eta_comp)
     W_compressor = m_dot_ref * (h2 - h1)
 
     # 6. Condensor
@@ -191,17 +192,16 @@ if converged:
         print("Heating COP: N/A")
 
     # --- Properties of Each Points ---
-    s1 = PropsSI('S', 'P', p_evap, 'H', h1, ref)
-    s2 = PropsSI('S', 'P', p_cond, 'H', h2, ref)
-    s3 = PropsSI('S', 'P', p_cond, 'H', h3, ref)
-    p4 = p_evap 
+    s1 = PropsSI('S', 'P', p1, 'H', h1, ref)
+    s2 = PropsSI('S', 'P', p2, 'H', h2, ref)
+    s3 = PropsSI('S', 'P', p3, 'H', h3, ref)
     T4_K = PropsSI('T', 'P', p4, 'H', h4, ref)
     s4 = PropsSI('S', 'P', p4, 'H', h4, ref)
 
     # --- Create pandas DataFrame ---
     state_points_data = {
         'T [°C]': [T1_K - 273.15, T2_K - 273.15, T3_K - 273.15, T4_K - 273.15],
-        'P [bar]': [p_evap / 1e5, p_cond / 1e5, p_cond / 1e5, p4 / 1e5],
+        'P [bar]': [p1 / 1e5, p2 / 1e5, p3 / 1e5, p4 / 1e5],
         'h [kJ/kg]': [h1 / 1e3, h2 / 1e3, h3 / 1e3, h4 / 1e3],
         's [kJ/kgK]': [s1 / 1e3, s2 / 1e3, s3 / 1e3, s4 / 1e3]
     }
