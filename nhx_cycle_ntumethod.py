@@ -125,10 +125,16 @@ else:
 def plot_thermodynamic_diagrams(df_results, ref_name, save_path=None):
     print("\n--- Creating Plots... ---")
     P_crit = PropsSI('Pcrit', ref_name)
-    T_start = PropsSI('Ttriple', ref_name) + 2.0
+    T_start = T_evap_K - 30
     P_start = PropsSI('P', 'T', T_start, 'Q', 0, ref_name)
     p_dome = np.logspace(np.log10(P_start), np.log10(P_crit * 0.999), 200)
 
+    # Calculate Dew Point
+    p_cond_sat = PropsSI('P', 'T', T_cond_K, 'Q', 1, ref_name)
+    T_dew_point = PropsSI('T', 'P', p_cond_sat, 'Q', 1, ref_name)
+    h_dew_point = PropsSI('H', 'P', p_cond_sat, 'Q', 1, ref_name)
+    s_dew_point = PropsSI('S', 'P', p_cond_sat, 'Q', 1, ref_name)
+    
     T_liq, T_vap, h_liq, h_vap, s_liq, s_vap = [], [], [], [], [], []
     for p in p_dome:
         try:
@@ -150,6 +156,7 @@ def plot_thermodynamic_diagrams(df_results, ref_name, save_path=None):
     p_cycle = df_results['P [bar]'].tolist(); p_cycle.append(p_cycle[0])
     s_cycle = df_results['s [kJ/kgK]'].tolist(); s_cycle.append(s_cycle[0])
     T_cycle = df_results['T [°C]'].tolist(); T_cycle.append(T_cycle[0])
+
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
     ax1.plot(h_liq_kJ, p_dome_bar, 'b-', label='Saturated Liquid')
@@ -186,9 +193,14 @@ if converged:
     
     if W_compressor > 0:
         COP_H = Q_cond_required / W_compressor
-        print(f"Heating COP: {COP_H:.3f}")
+        density = PropsSI('D','T', T2_K ,'P', p2, ref)
+        v_in = 1 / density
+        VHC = Q_cond_required / (m_dot_ref * v_in)        #J/m^3
+        
+        print(f"Heating COP: {COP_H:.3f} (-)")
+        print(f"Volumetric Heating Capacity (VHC): {VHC/1e3:.3f} kJ/m^3")
+        print(f"Compressor Power Consumption: {W_compressor/1e3:.3f} kW")
     else:
-        COP_H = 0 # Define COP_H as 0 or another indicator for the text file
         print("Heating COP: N/A")
 
     # --- Properties of Each Points ---
@@ -227,6 +239,8 @@ if converged:
         f.write(f"Required Evaporation Saturation Temperature: {T_evap_K - 273.15:.2f} °C\n")
         f.write(f"Mass Flow Rate of Refrigerant: {m_dot_ref:.3f} kg/s\n")
         f.write(f"Heating COP: {COP_H:.3f}\n\n")
+        f.write(f"Volumetric Heating Capacity (VHC): {VHC/1e3:.3f} kJ/m^3\n\n")
+        f.write(f"Compressor Power Consumption: {W_compressor/1e3:.3f} kW\n\n")
         f.write("--- Physical Properties ---\n")
         f.write(df.round(3).to_string())
     print(f"Summary saved to {summary_path}")
