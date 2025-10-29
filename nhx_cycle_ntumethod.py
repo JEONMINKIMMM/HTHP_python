@@ -11,8 +11,8 @@ from CoolProp.CoolProp import PropsSI
 
 # -------------------- Input Variables --------------------
 ref = "R1233zdE"              # Refrigerant
-T_source_in_C = 85.0          # Heat Source T-temperature (°C)
-m_dot_source = 1.2            # Heat Source mass flow rate (kg/s)
+T_source_in_C = 75.0          # Heat Source T-temperature (°C)
+m_dot_source = 1.51           # Heat Source mass flow rate (kg/s)
 T_sink_in_C = 100.0           # Heat Sink temperature (°C)
 m_dot_sink = 1.0              # Heat Sink mass flow rate (kg/s)
 
@@ -157,6 +157,10 @@ def plot_thermodynamic_diagrams(df_results, ref_name, save_path=None):
     s_cycle = df_results['s [kJ/kgK]'].tolist(); s_cycle.append(s_cycle[0])
     T_cycle = df_results['T [°C]'].tolist(); T_cycle.append(T_cycle[0])
 
+    s_cycle.insert(2, s_dew_point / 1e3)
+    T_cycle.insert(2, T_dew_point-273.15)
+    p_cycle.insert(2, p_cond_sat / 1e5)
+    h_cycle.insert(2,h_dew_point / 1e3)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
     ax1.plot(h_liq_kJ, p_dome_bar, 'b-', label='Saturated Liquid')
